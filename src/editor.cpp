@@ -12,9 +12,9 @@ HWND         g_main = nullptr;
 HWND         g_edit = nullptr;
 HFONT        g_font = nullptr;
 
-std::wstring g_path;                 // 空表示未命名
+std::wstring g_path;                 // empty = untitled
 bool         g_dirty = false;
-bool         g_suppress = false;     // 抑制 SetWindowTextW 引起的 EN_CHANGE
+bool         g_suppress = false;     // suppress EN_CHANGE caused by SetWindowTextW
 Enc          g_enc = Enc::UTF8;
 bool         g_crlf = true;
 
@@ -56,11 +56,11 @@ void ClearToBlank() {
 
 } // namespace
 
-// ---------- 标题 ----------
+// Title
 void ApplyTitle() {
     if (!g_main) return;
     std::wstring title;
-    if (g_path.empty()) title = L"未命名";
+    if (g_path.empty()) title = L"Untitled";
     else {
         const wchar_t* p = wcsrchr(g_path.c_str(), L'\\');
         title = p ? (p + 1) : g_path;
@@ -70,37 +70,37 @@ void ApplyTitle() {
     SetWindowTextW(g_main, title.c_str());
 }
 
-// ---------- 菜单 ----------
+// Menu
 HMENU BuildMenu() {
     HMENU hMenu = CreateMenu();
 
     HMENU hFile = CreatePopupMenu();
-    AppendMenuW(hFile, MF_STRING, ID_FILE_NEW,    L"新建(&N)\tCtrl+N");
-    AppendMenuW(hFile, MF_STRING, ID_FILE_OPEN,   L"打开(&O)...\tCtrl+O");
-    AppendMenuW(hFile, MF_STRING, ID_FILE_SAVE,   L"保存(&S)\tCtrl+S");
-    AppendMenuW(hFile, MF_STRING, ID_FILE_SAVEAS, L"另存为(&A)...\tCtrl+Shift+S");
+    AppendMenuW(hFile, MF_STRING, ID_FILE_NEW,    L"&New\tCtrl+N");
+    AppendMenuW(hFile, MF_STRING, ID_FILE_OPEN,   L"&Open...\tCtrl+O");
+    AppendMenuW(hFile, MF_STRING, ID_FILE_SAVE,   L"&Save\tCtrl+S");
+    AppendMenuW(hFile, MF_STRING, ID_FILE_SAVEAS, L"Save &As...\tCtrl+Shift+S");
     AppendMenuW(hFile, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(hFile, MF_STRING, ID_FILE_CLOSE,  L"关闭当前(&W)\tCtrl+Q");
-    AppendMenuW(hFile, MF_STRING, ID_FILE_EXIT,   L"退出(&X)");
-    AppendMenuW(hMenu, MF_POPUP, (UINT_PTR)hFile, L"文件(&F)");
+    AppendMenuW(hFile, MF_STRING, ID_FILE_CLOSE,  L"&Close\tCtrl+Q");
+    AppendMenuW(hFile, MF_STRING, ID_FILE_EXIT,   L"E&xit");
+    AppendMenuW(hMenu, MF_POPUP, (UINT_PTR)hFile, L"&File");
 
     HMENU hEdit = CreatePopupMenu();
-    AppendMenuW(hEdit, MF_STRING, ID_EDIT_UNDO,      L"撤销(&U)\tCtrl+Z");
+    AppendMenuW(hEdit, MF_STRING, ID_EDIT_UNDO,      L"&Undo\tCtrl+Z");
     AppendMenuW(hEdit, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(hEdit, MF_STRING, ID_EDIT_CUT,       L"剪切(&T)\tCtrl+X");
-    AppendMenuW(hEdit, MF_STRING, ID_EDIT_COPY,      L"复制(&C)\tCtrl+C");
-    AppendMenuW(hEdit, MF_STRING, ID_EDIT_PASTE,     L"粘贴(&P)\tCtrl+V");
-    AppendMenuW(hEdit, MF_STRING, ID_EDIT_SELECTALL, L"全选(&A)\tCtrl+A");
-    AppendMenuW(hMenu, MF_POPUP, (UINT_PTR)hEdit, L"编辑(&E)");
+    AppendMenuW(hEdit, MF_STRING, ID_EDIT_CUT,       L"Cu&t\tCtrl+X");
+    AppendMenuW(hEdit, MF_STRING, ID_EDIT_COPY,      L"&Copy\tCtrl+C");
+    AppendMenuW(hEdit, MF_STRING, ID_EDIT_PASTE,     L"&Paste\tCtrl+V");
+    AppendMenuW(hEdit, MF_STRING, ID_EDIT_SELECTALL, L"Select &All\tCtrl+A");
+    AppendMenuW(hMenu, MF_POPUP, (UINT_PTR)hEdit, L"&Edit");
 
     HMENU hHelp = CreatePopupMenu();
-    AppendMenuW(hHelp, MF_STRING, ID_HELP_ABOUT, L"关于(&A)");
-    AppendMenuW(hMenu, MF_POPUP, (UINT_PTR)hHelp, L"帮助(&H)");
+    AppendMenuW(hHelp, MF_STRING, ID_HELP_ABOUT, L"&About");
+    AppendMenuW(hMenu, MF_POPUP, (UINT_PTR)hHelp, L"&Help");
 
     return hMenu;
 }
 
-// ---------- 绑定 ----------
+// Attach
 void Attach(HWND mainWnd, HWND editCtrl) {
     g_main = mainWnd;
     g_edit = editCtrl;
@@ -109,7 +109,7 @@ void Attach(HWND mainWnd, HWND editCtrl) {
     ApplyTitle();
 }
 
-// 打开
+// Open
 bool OpenPath(const std::wstring& path) {
     bool existed = GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES;
     if (!existed) {
@@ -137,7 +137,7 @@ bool OpenPath(const std::wstring& path) {
     return true;
 }
 
-// 保存
+// Save
 bool SaveAs() {
     wchar_t buf[MAX_PATH] = {};
     if (!g_path.empty()) {
@@ -147,9 +147,10 @@ bool SaveAs() {
     OPENFILENAMEW ofn = {};
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner   = g_main;
-    ofn.lpstrFilter = L"文本文件\0*.txt\0所有文件\0*.*\0\0";
+    ofn.lpstrFilter = L"Text Files\0*.txt\0All Files\0*.*\0\0";
     ofn.lpstrFile = buf;
     ofn.nMaxFile  = MAX_PATH;
+    ofn.lpstrTitle = L"Save As";
     ofn.lpstrDefExt = L"txt";
     ofn.Flags = OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
     if (!GetSaveFileNameW(&ofn)) return false;
@@ -172,13 +173,15 @@ bool Save() {
     std::vector<BYTE> bytes = EncodeText(out, g_enc, ok);
     if (!ok) {
         int r = MessageBoxW(g_main,
-            L"当前文件编码无法表示部分字符。\n是否改为 UTF-8（带 BOM）保存？",
+            L"Some characters cannot be represented in the current encoding.\n"
+            L"Save as UTF-8 (with BOM) instead?",
             L"quietext", MB_YESNO | MB_ICONQUESTION);
         if (r != IDYES) return false;
         g_enc = Enc::UTF8BOM;
         bytes = EncodeText(out, g_enc, ok);
         if (!ok) {
-            MessageBoxW(g_main, L"编码转换失败。", L"quietext", MB_ICONERROR);
+            MessageBoxW(g_main, L"Encoding conversion failed.",
+                        L"quietext", MB_ICONERROR);
             return false;
         }
     }
@@ -191,31 +194,31 @@ bool Save() {
 
 bool ConfirmSaveIfDirty() {
     if (!g_dirty) return true;
-    int r = MessageBoxW(g_main, L"当前文件已修改，是否保存？",
+    int r = MessageBoxW(g_main, L"The document has been modified. Save changes?",
                         L"quietext", MB_YESNOCANCEL | MB_ICONQUESTION);
     if (r == IDCANCEL) return false;
     if (r == IDYES)    return Save();
     return true;
 }
 
-// 对话框
+// Dialogs
 bool DoOpenDialog(std::wstring& out) {
     wchar_t buf[MAX_PATH] = {};
     OPENFILENAMEW ofn = {};
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner   = g_main;
-    ofn.lpstrFilter =
-        L"文本文件\0*.txt;*.md;*.log;*.ini;*.csv;*.json;*.xml;*.c;*.h;*.cpp;*.hpp;*.py;*.js;*.ts;*.html;*.css;*.sh;*.bat;*.yaml;*.yml;*.toml\0"
-        L"所有文件\0*.*\0\0";
+    // No extension whitelist: show every file so nothing gets hidden by accident.
+    ofn.lpstrFilter = L"All Files\0*.*\0\0";
     ofn.lpstrFile = buf;
     ofn.nMaxFile  = MAX_PATH;
+    ofn.lpstrTitle = L"Open";
     ofn.Flags     = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
     if (!GetOpenFileNameW(&ofn)) return false;
     out = buf;
     return true;
 }
 
-// ---------- 文档生命周期 ----------
+// Document lifecycle
 void NewDocument() {
     if (!ConfirmSaveIfDirty()) return;
     ClearToBlank();
@@ -226,7 +229,7 @@ void CloseDocument() {
     ClearToBlank();
 }
 
-// ---------- 命令 / 通知 ----------
+// Command / notification
 void OnEditChange() {
     if (g_suppress) return;
     if (!g_dirty) { g_dirty = true; ApplyTitle(); }
@@ -252,8 +255,9 @@ void OnCommand(UINT id) {
     case ID_EDIT_SELECTALL: SendMessageW(g_edit, EM_SETSEL, 0, -1); break;
     case ID_HELP_ABOUT:
         MessageBoxW(g_main,
-            L"quietext\n\n极简文本编辑器。\n保存时不改变文件时间。",
-            L"关于 quietext", MB_ICONINFORMATION);
+            L"quietext\n\nA minimal text editor.\n"
+            L"Saving does not change file timestamps.",
+            L"About quietext", MB_ICONINFORMATION);
         break;
     }
 }

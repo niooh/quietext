@@ -51,3 +51,4 @@ bool DoOpenDialog(std::wstring& out);
 void ApplyTitle();
 
 }
+

@@ -19,8 +19,8 @@ static std::wstring GetFullPath(const std::wstring& p) {
 static std::vector<std::wstring> FindTextFilesInCwd() {
     static const wchar_t* kExts[] = {
         L".txt", L".md", L".log", L".ini", L".csv", L".json", L".xml",
-        L".c", L".h", L".cpp", L".hpp", L".cc", L".py", L".js", L".ts",
-        L".html", L".htm", L".css", L".sh", L".bat", L".yaml", L".yml", L".toml",
+        L".c", L".h", L".cpp", L".hpp", L".cc", L".py", L".js", L".ts", L".jsx", L".tsx", L".rs", L".kt", L".nim",
+        L".html", L".htm", L".svg", L".css", L".sh", L".bat", L".yaml", L".yml", L".toml", L".cif"
     };
     std::vector<std::wstring> out;
     WIN32_FIND_DATAW fd;
@@ -80,6 +80,10 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nCmdShow) {
+    // Prefer English for system-provided UI (MessageBox buttons, common dialogs).
+    // Falls back silently if English UI resources are not installed.
+    SetThreadUILanguage(MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US));
+
     int argc = 0;
     LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     std::wstring cliPath;
@@ -106,7 +110,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nCmdShow) {
     ShowWindow(g_hMain, nCmdShow);
     UpdateWindow(g_hMain);
 
-    // 启动文件
+    // Startup file
     if (!cliPath.empty()) {
         editor::OpenPath(cliPath);
     } else {
@@ -116,11 +120,11 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nCmdShow) {
         } else {
             std::wstring picked;
             if (editor::DoOpenDialog(picked)) editor::OpenPath(picked);
-            // 取消：编辑器保持未命名空白状态，标题已由 Attach 设置为 "未命名 - quietext"
+            // Cancelled: keep the blank untitled document; title already set by Attach.
         }
     }
 
-    // 加速键（Ctrl+Q 走 ID_FILE_CLOSE）
+    // Accelerators (Ctrl+Q goes to ID_FILE_CLOSE)
     ACCEL accel[] = {
         { FVIRTKEY | FCONTROL,         'S', editor::ID_FILE_SAVE },
         { FVIRTKEY | FCONTROL,         'O', editor::ID_FILE_OPEN },

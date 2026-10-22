@@ -8,7 +8,7 @@ bool ReadAllBytes(const std::wstring& path, std::vector<BYTE>& out, HWND errorOw
                            FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (h == INVALID_HANDLE_VALUE) {
-        MessageBoxW(errorOwner, L"无法打开文件。", L"quietext", MB_ICONERROR);
+        MessageBoxW(errorOwner, L"Cannot open file.", L"quietext", MB_ICONERROR);
         return false;
     }
     FILETIME ct{}, at{}, wt{};
@@ -22,7 +22,7 @@ bool ReadAllBytes(const std::wstring& path, std::vector<BYTE>& out, HWND errorOw
         ReadFile(h, out.data(), (DWORD)out.size(), &got, nullptr);
     }
 
-    SetFileTime(h, &ct, &at, &wt);      // 恢复读操作刷新的 atime
+    SetFileTime(h, &ct, &at, &wt);  // restore atime touched by the read
     CloseHandle(h);
     return true;
 }
@@ -35,7 +35,8 @@ bool WriteAllBytes(const std::wstring& path, const std::vector<BYTE>& bytes,
                            FILE_SHARE_READ, nullptr,
                            OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (h == INVALID_HANDLE_VALUE) {
-        MessageBoxW(errorOwner, L"无法打开文件进行保存（路径或权限问题）。",
+        MessageBoxW(errorOwner,
+                    L"Cannot open file for saving (path or permission issue).",
                     L"quietext", MB_ICONERROR);
         return false;
     }
@@ -49,11 +50,11 @@ bool WriteAllBytes(const std::wstring& path, const std::vector<BYTE>& bytes,
     BOOL ok = WriteFile(h, bytes.data(), (DWORD)bytes.size(), &written, nullptr);
     if (!ok || written != bytes.size()) {
         CloseHandle(h);
-        MessageBoxW(errorOwner, L"写入文件失败。", L"quietext", MB_ICONERROR);
+        MessageBoxW(errorOwner, L"Failed to write file.", L"quietext", MB_ICONERROR);
         return false;
     }
 
-    if (existed) SetFileTime(h, &ct, &at, &wt);   // 恢复三件套
+    if (existed) SetFileTime(h, &ct, &at, &wt);  // restore all three timestamps
     CloseHandle(h);
     return true;
 }
