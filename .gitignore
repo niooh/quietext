@@ -6,3 +6,6 @@
 *.ilk
 *.exp
 *.lib
+*.tmp
+
+pwd_report.md

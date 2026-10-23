@@ -5,13 +5,14 @@
 
 namespace fileio {
 
-// Read all bytes; restores LastAccessTime touched by the read.
-bool ReadAllBytes(const std::wstring& path, std::vector<BYTE>& out,
-                  HWND errorOwner);
+// Normalize to an absolute path; returns the input on failure.
+std::wstring GetFullPath(const std::wstring& path);
 
-// Write all bytes; preserves CreationTime / LastAccessTime / LastWriteTime.
-// If the file does not exist, it is created without setting timestamps.
-bool WriteAllBytes(const std::wstring& path, const std::vector<BYTE>& data,
-                   HWND errorOwner);
+// Read all bytes; restores LastAccessTime touched by the read.
+bool ReadAllBytes(const std::wstring& path, std::vector<BYTE>& out, HWND errorOwner);
+
+// Write all bytes; preserves CreationTime / LastAccessTime / LastWriteTime
+// whenever possible. Newly created files get no timestamp override.
+bool WriteAllBytes(const std::wstring& path, const std::vector<BYTE>& data, HWND errorOwner);
 
 }

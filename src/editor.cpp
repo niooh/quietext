@@ -1,6 +1,7 @@
 #include "editor.h"
 #include "encoding.h"
 #include "fileio.h"
+
 #include <commdlg.h>
 #include <cwchar>
 
@@ -8,38 +9,48 @@ namespace editor {
 
 namespace {
 
-HWND         g_main = nullptr;
-HWND         g_edit = nullptr;
-HFONT        g_font = nullptr;
+HWND g_main = nullptr;
+HWND g_edit = nullptr;
+HFONT g_font = nullptr;
 
-std::wstring g_path;  // empty = untitled
-bool         g_dirty = false;
-bool         g_suppress = false;  // suppress EN_CHANGE caused by SetWindowTextW
-Enc          g_enc = Enc::UTF8;
-bool         g_crlf = true;
+std::wstring g_path;
+bool g_dirty = false;
+bool g_suppress = false;
 
-std::wstring GetFullPath(const std::wstring& p) {
-    wchar_t buf[MAX_PATH * 2];
-    DWORD n = GetFullPathNameW(p.c_str(), MAX_PATH * 2, buf, nullptr);
-    if (n == 0 || n >= MAX_PATH * 2) return p;
-    return std::wstring(buf, n);
+Enc g_enc = Enc::UTF8;
+bool g_crlf = true;
+
+void ShowError(const wchar_t* message) {
+    MessageBoxW(g_main, message, L"quietext", MB_ICONERROR);
+}
+
+// Replace edit text without marking the document dirty.
+void SetEditText(const std::wstring& text) {
+    g_suppress = true;
+    SetWindowTextW(g_edit, text.c_str());
+    g_suppress = false;
 }
 
 void CreateFontOnce() {
     if (g_font) return;
-    HDC hdc = GetDC(nullptr);
-    int dpi = GetDeviceCaps(hdc, LOGPIXELSY);
-    ReleaseDC(nullptr, hdc);
 
-    LOGFONTW lf = {};
-    lf.lfHeight = -MulDiv(10, dpi, 72);
-    lf.lfWeight = FW_NORMAL;
-    lf.lfCharSet = DEFAULT_CHARSET;
-    wcsncpy(lf.lfFaceName, L"Consolas", LF_FACESIZE - 1);
-    g_font = CreateFontIndirectW(&lf);
+    HDC dc = GetDC(nullptr);
+    int dpi = GetDeviceCaps(dc, LOGPIXELSY);
+    ReleaseDC(nullptr, dc);
+
+    LOGFONTW font{};
+    font.lfHeight = -MulDiv(10, dpi, 72);
+    font.lfWeight = FW_NORMAL;
+    font.lfCharSet = DEFAULT_CHARSET;
+    wcsncpy(font.lfFaceName, L"Consolas", LF_FACESIZE - 1);
+    font.lfFaceName[LF_FACESIZE - 1] = 0;
+
+    g_font = CreateFontIndirectW(&font);
     if (!g_font) {
-        wcsncpy(lf.lfFaceName, L"Courier New", LF_FACESIZE - 1);
-        g_font = CreateFontIndirectW(&lf);
+        // Fallback for systems without Consolas.
+        wcsncpy(font.lfFaceName, L"Courier New", LF_FACESIZE - 1);
+        font.lfFaceName[LF_FACESIZE - 1] = 0;
+        g_font = CreateFontIndirectW(&font);
     }
 }
 
@@ -47,177 +58,223 @@ void ClearToBlank() {
     g_path.clear();
     g_enc = Enc::UTF8;
     g_crlf = true;
-    g_suppress = true;
-    SetWindowTextW(g_edit, L"");
-    g_suppress = false;
+    SetEditText(L"");
     g_dirty = false;
     ApplyTitle();
 }
 
+bool PickSavePath(std::wstring& path) {
+    wchar_t buffer[MAX_PATH]{};
+    if (!g_path.empty()) {
+        wcsncpy(buffer, g_path.c_str(), MAX_PATH - 1);
+        buffer[MAX_PATH - 1] = 0;
+    }
+
+    OPENFILENAMEW dialog{};
+    dialog.lStructSize = sizeof(dialog);
+    dialog.hwndOwner   = g_main;
+    dialog.lpstrFilter = L"Text Files\0*.txt\0All Files\0*.*\0\0";
+    dialog.lpstrFile   = buffer;
+    dialog.nMaxFile    = MAX_PATH;
+    dialog.lpstrTitle  = L"Save As";
+    dialog.lpstrDefExt = L"txt";
+    dialog.Flags       = OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+
+    if (!GetSaveFileNameW(&dialog)) return false;
+
+    path = fileio::GetFullPath(buffer);
+    return true;
+}
+
+bool SaveToPath(const std::wstring& path) {
+    int length = GetWindowTextLengthW(g_edit);
+    if (length < 0) return false;
+
+    std::wstring text(static_cast<size_t>(length) + 1, L'\0');
+    if (length > 0) {
+        int copied = GetWindowTextW(g_edit, &text[0], length + 1);
+        if (copied != length) { ShowError(L"Cannot read editor contents."); return false; }
+    }
+    text.resize(static_cast<size_t>(length));
+
+    std::wstring output = g_crlf ? text : CRLFtoLF(text);
+    Enc saveEncoding = g_enc;
+    bool ok = true;
+    std::vector<BYTE> bytes = EncodeText(output, saveEncoding, ok);
+
+    if (!ok) {
+        int result = MessageBoxW(g_main,
+            L"Some characters cannot be represented in the current encoding.\n"
+            L"Save as UTF-8 with BOM instead?",
+            L"quietext", MB_YESNO | MB_ICONQUESTION);
+        if (result != IDYES) return false;
+
+        saveEncoding = Enc::UTF8BOM;
+        bytes = EncodeText(output, saveEncoding, ok);
+        if (!ok) { ShowError(L"Encoding conversion failed."); return false; }
+    }
+
+    if (!fileio::WriteAllBytes(path, bytes, g_main)) return false;
+
+    g_enc = saveEncoding;
+    g_dirty = false;
+    ApplyTitle();
+    return true;
+}
+
 } // namespace
 
-// Title
 void ApplyTitle() {
     if (!g_main) return;
+
     std::wstring title;
-    if (g_path.empty()) title = L"Untitled";
-    else {
-        const wchar_t* p = wcsrchr(g_path.c_str(), L'\\');
-        title = p ? (p + 1) : g_path;
+    if (g_path.empty()) {
+        title = L"Untitled";
+    } else {
+        const wchar_t* name = wcsrchr(g_path.c_str(), L'\\');
+        title = name ? name + 1 : g_path;
     }
     if (g_dirty) title += L" *";
     title += L" - quietext";
+
     SetWindowTextW(g_main, title.c_str());
 }
 
-// Menu
 HMENU BuildMenu() {
-    HMENU hMenu = CreateMenu();
+    HMENU menu = CreateMenu();
 
-    HMENU hFile = CreatePopupMenu();
-    AppendMenuW(hFile, MF_STRING, ID_FILE_NEW,    L"&New\tCtrl+N");
-    AppendMenuW(hFile, MF_STRING, ID_FILE_OPEN,   L"&Open...\tCtrl+O");
-    AppendMenuW(hFile, MF_STRING, ID_FILE_SAVE,   L"&Save\tCtrl+S");
-    AppendMenuW(hFile, MF_STRING, ID_FILE_SAVEAS, L"Save &As...\tCtrl+Shift+S");
-    AppendMenuW(hFile, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(hFile, MF_STRING, ID_FILE_CLOSE,  L"&Close\tCtrl+Q");
-    AppendMenuW(hFile, MF_STRING, ID_FILE_EXIT,   L"E&xit");
-    AppendMenuW(hMenu, MF_POPUP, (UINT_PTR)hFile, L"&File");
+    HMENU fileMenu = CreatePopupMenu();
+    AppendMenuW(fileMenu, MF_STRING, ID_FILE_NEW,    L"&New\tCtrl+N");
+    AppendMenuW(fileMenu, MF_STRING, ID_FILE_OPEN,   L"&Open...\tCtrl+O");
+    AppendMenuW(fileMenu, MF_STRING, ID_FILE_SAVE,   L"&Save\tCtrl+S");
+    AppendMenuW(fileMenu, MF_STRING, ID_FILE_SAVEAS, L"Save &As...\tCtrl+Shift+S");
+    AppendMenuW(fileMenu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(fileMenu, MF_STRING, ID_FILE_CLOSE,  L"&Close\tCtrl+Q");
+    AppendMenuW(fileMenu, MF_STRING, ID_FILE_EXIT,   L"E&xit");
+    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(fileMenu), L"&File");
 
-    HMENU hEdit = CreatePopupMenu();
-    AppendMenuW(hEdit, MF_STRING, ID_EDIT_UNDO,      L"&Undo\tCtrl+Z");
-    AppendMenuW(hEdit, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(hEdit, MF_STRING, ID_EDIT_CUT,       L"Cu&t\tCtrl+X");
-    AppendMenuW(hEdit, MF_STRING, ID_EDIT_COPY,      L"&Copy\tCtrl+C");
-    AppendMenuW(hEdit, MF_STRING, ID_EDIT_PASTE,     L"&Paste\tCtrl+V");
-    AppendMenuW(hEdit, MF_STRING, ID_EDIT_SELECTALL, L"Select &All\tCtrl+A");
-    AppendMenuW(hMenu, MF_POPUP, (UINT_PTR)hEdit, L"&Edit");
+    HMENU editMenu = CreatePopupMenu();
+    AppendMenuW(editMenu, MF_STRING, ID_EDIT_UNDO,      L"&Undo\tCtrl+Z");
+    AppendMenuW(editMenu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(editMenu, MF_STRING, ID_EDIT_CUT,       L"Cu&t\tCtrl+X");
+    AppendMenuW(editMenu, MF_STRING, ID_EDIT_COPY,      L"&Copy\tCtrl+C");
+    AppendMenuW(editMenu, MF_STRING, ID_EDIT_PASTE,     L"&Paste\tCtrl+V");
+    AppendMenuW(editMenu, MF_STRING, ID_EDIT_SELECTALL, L"Select &All\tCtrl+A");
+    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(editMenu), L"&Edit");
 
-    HMENU hHelp = CreatePopupMenu();
-    AppendMenuW(hHelp, MF_STRING, ID_HELP_ABOUT, L"&About");
-    AppendMenuW(hMenu, MF_POPUP, (UINT_PTR)hHelp, L"&Help");
+    HMENU helpMenu = CreatePopupMenu();
+    AppendMenuW(helpMenu, MF_STRING, ID_HELP_ABOUT, L"&About");
+    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(helpMenu), L"&Help");
 
-    return hMenu;
+    return menu;
 }
 
-// Attach
 void Attach(HWND mainWnd, HWND editCtrl) {
     g_main = mainWnd;
     g_edit = editCtrl;
+
     CreateFontOnce();
-    if (g_font) SendMessageW(g_edit, WM_SETFONT, (WPARAM)g_font, TRUE);
+    if (g_font) {
+        SendMessageW(g_edit, WM_SETFONT,
+                     reinterpret_cast<WPARAM>(g_font), TRUE);
+    }
     ApplyTitle();
 }
 
-// Open
 bool OpenPath(const std::wstring& path) {
-    bool existed = GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES;
-    if (!existed) {
-        ClearToBlank();
-        g_path = GetFullPath(path);
-        ApplyTitle();
-        return true;
+    DWORD attributes = GetFileAttributesW(path.c_str());
+
+    if (attributes == INVALID_FILE_ATTRIBUTES) {
+        DWORD error = GetLastError();
+        // Missing file: treat as a new document at that path (matches editor UX).
+        if (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND) {
+            ClearToBlank();
+            g_path = fileio::GetFullPath(path);
+            ApplyTitle();
+            return true;
+        }
+        ShowError(L"Cannot access file.");
+        return false;
+    }
+
+    if (attributes & FILE_ATTRIBUTE_DIRECTORY) {
+        ShowError(L"The specified path is a directory.");
+        return false;
     }
 
     std::vector<BYTE> data;
     if (!fileio::ReadAllBytes(path, data, g_main)) return false;
 
     std::wstring text;
-    g_enc = DetectAndDecode(data, text);
-    g_crlf = IsPureCRLF(text);
+    Enc encoding;
+    if (!DetectAndDecode(data, text, encoding)) {
+        ShowError(L"The file could not be decoded safely.");
+        return false;
+    }
+    if (text.find(L'\0') != std::wstring::npos) {
+        ShowError(L"This file contains NUL characters and cannot be safely edited.");
+        return false;
+    }
+
+    // Remember the original newline style, but edit internally as CRLF.
+    bool crlf = IsPureCRLF(text);
     text = ToCRLF(text);
 
-    g_suppress = true;
-    SetWindowTextW(g_edit, text.c_str());
-    g_suppress = false;
+    SetEditText(text);
 
-    g_path = GetFullPath(path);
+    g_path = fileio::GetFullPath(path);
+    g_enc = encoding;
+    g_crlf = crlf;
     g_dirty = false;
     ApplyTitle();
     return true;
 }
 
-// Save
-bool SaveAs() {
-    wchar_t buf[MAX_PATH] = {};
-    if (!g_path.empty()) {
-        wcsncpy(buf, g_path.c_str(), MAX_PATH - 1);
-        buf[MAX_PATH - 1] = 0;
-    }
-    OPENFILENAMEW ofn = {};
-    ofn.lStructSize = sizeof(ofn);
-    ofn.hwndOwner   = g_main;
-    ofn.lpstrFilter = L"Text Files\0*.txt\0All Files\0*.*\0\0";
-    ofn.lpstrFile = buf;
-    ofn.nMaxFile  = MAX_PATH;
-    ofn.lpstrTitle = L"Save As";
-    ofn.lpstrDefExt = L"txt";
-    ofn.Flags = OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
-    if (!GetSaveFileNameW(&ofn)) return false;
-    g_path = GetFullPath(buf);
-    return true;
+bool Save() {
+    if (g_path.empty()) return SaveAs();
+    return SaveToPath(g_path);
 }
 
-bool Save() {
-    if (g_path.empty()) {
-        if (!SaveAs()) return false;
-    }
-    int len = GetWindowTextLengthW(g_edit);
-    std::wstring text(len + 1, L'\0');
-    if (len > 0) GetWindowTextW(g_edit, &text[0], len + 1);
-    text.resize(len);
+bool SaveAs() {
+    std::wstring newPath;
+    if (!PickSavePath(newPath)) return false;
+    if (!SaveToPath(newPath)) return false;
 
-    std::wstring out = g_crlf ? text : CRLFtoLF(text);
-
-    bool ok = true;
-    std::vector<BYTE> bytes = EncodeText(out, g_enc, ok);
-    if (!ok) {
-        int r = MessageBoxW(g_main,
-            L"Some characters cannot be represented in the current encoding.\n"
-            L"Save as UTF-8 (with BOM) instead?",
-            L"quietext", MB_YESNO | MB_ICONQUESTION);
-        if (r != IDYES) return false;
-        g_enc = Enc::UTF8BOM;
-        bytes = EncodeText(out, g_enc, ok);
-        if (!ok) {
-            MessageBoxW(g_main, L"Encoding conversion failed.",
-                        L"quietext", MB_ICONERROR);
-            return false;
-        }
-    }
-
-    if (!fileio::WriteAllBytes(g_path, bytes, g_main)) return false;
-    g_dirty = false;
+    g_path = newPath;
     ApplyTitle();
     return true;
 }
 
 bool ConfirmSaveIfDirty() {
     if (!g_dirty) return true;
-    int r = MessageBoxW(g_main, L"The document has been modified. Save changes?",
-                        L"quietext", MB_YESNOCANCEL | MB_ICONQUESTION);
-    if (r == IDCANCEL) return false;
-    if (r == IDYES)    return Save();
+
+    int result = MessageBoxW(g_main,
+        L"The document has been modified. Save changes?",
+        L"quietext", MB_YESNOCANCEL | MB_ICONQUESTION);
+
+    if (result == IDCANCEL) return false;
+    if (result == IDYES)    return Save();
     return true;
 }
 
-// Dialogs
 bool DoOpenDialog(std::wstring& out) {
-    wchar_t buf[MAX_PATH] = {};
-    OPENFILENAMEW ofn = {};
-    ofn.lStructSize = sizeof(ofn);
-    ofn.hwndOwner   = g_main;
-    ofn.lpstrFilter = L"All Files\0*.*\0\0";
-    ofn.lpstrFile = buf;
-    ofn.nMaxFile  = MAX_PATH;
-    ofn.lpstrTitle = L"Open";
-    ofn.Flags     = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
-    if (!GetOpenFileNameW(&ofn)) return false;
-    out = buf;
+    wchar_t buffer[MAX_PATH]{};
+
+    OPENFILENAMEW dialog{};
+    dialog.lStructSize = sizeof(dialog);
+    dialog.hwndOwner   = g_main;
+    dialog.lpstrFilter = L"All Files\0*.*\0\0";
+    dialog.lpstrFile   = buffer;
+    dialog.nMaxFile    = MAX_PATH;
+    dialog.lpstrTitle  = L"Open";
+    dialog.Flags       = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+
+    if (!GetOpenFileNameW(&dialog)) return false;
+
+    out = buffer;
     return true;
 }
 
-// Document lifecycle
 void NewDocument() {
     if (!ConfirmSaveIfDirty()) return;
     ClearToBlank();
@@ -228,34 +285,41 @@ void CloseDocument() {
     ClearToBlank();
 }
 
-// Command / notification
 void OnEditChange() {
-    if (g_suppress) return;
-    if (!g_dirty) { g_dirty = true; ApplyTitle(); }
+    if (g_suppress || g_dirty) return;
+    g_dirty = true;
+    ApplyTitle();
 }
 
 void OnCommand(UINT id) {
     switch (id) {
-    case ID_FILE_NEW:    NewDocument(); break;
+    case ID_FILE_NEW:  NewDocument(); break;
     case ID_FILE_OPEN: {
         if (!ConfirmSaveIfDirty()) return;
-        std::wstring p;
-        if (DoOpenDialog(p)) OpenPath(p);
+        std::wstring path;
+        if (DoOpenDialog(path)) OpenPath(path);
         break;
     }
-    case ID_FILE_SAVE:   Save(); break;
-    case ID_FILE_SAVEAS: if (SaveAs()) Save(); break;
+    case ID_FILE_SAVE:   Save();     break;
+    case ID_FILE_SAVEAS: SaveAs();   break;
     case ID_FILE_CLOSE:  CloseDocument(); break;
-    case ID_FILE_EXIT:   SendMessageW(g_main, WM_CLOSE, 0, 0); break;
-    case ID_EDIT_UNDO:      SendMessageW(g_edit, WM_UNDO, 0, 0); break;
-    case ID_EDIT_CUT:       SendMessageW(g_edit, WM_CUT,   0, 0); break;
-    case ID_EDIT_COPY:      SendMessageW(g_edit, WM_COPY,  0, 0); break;
-    case ID_EDIT_PASTE:     SendMessageW(g_edit, WM_PASTE, 0, 0); break;
+
+    case ID_FILE_EXIT:
+        SendMessageW(g_main, WM_CLOSE, 0, 0);
+        break;
+
+    case ID_EDIT_UNDO:      SendMessageW(g_edit, WM_UNDO, 0, 0);   break;
+    case ID_EDIT_CUT:       SendMessageW(g_edit, WM_CUT,  0, 0);   break;
+    case ID_EDIT_COPY:      SendMessageW(g_edit, WM_COPY, 0, 0);   break;
+    case ID_EDIT_PASTE:     SendMessageW(g_edit, WM_PASTE,0, 0);   break;
     case ID_EDIT_SELECTALL: SendMessageW(g_edit, EM_SETSEL, 0, -1); break;
+
     case ID_HELP_ABOUT:
         MessageBoxW(g_main,
-            L"quietext\n\nA minimal text editor.\n"
-            L"Saving does not change file timestamps.",
+            L"quietext\n\n"
+            L"A minimal timestamp-preserving text editor.\n\n"
+            L"Existing files are modified in place while preserving "
+            L"CreationTime, LastAccessTime and LastWriteTime whenever possible.",
             L"About quietext", MB_ICONINFORMATION);
         break;
     }
