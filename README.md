@@ -1,65 +1,70 @@
-# quietext
+<p align="center">
+  <strong>quietext</strong>
+  <br>
+  English | <a href="./docs/zh-CN/README.md">简体中文</a>
+</p>
 
-一个 Windows 下的极简文本编辑器。目标只有一个：**改文本，但不动文件时间**。
+A minimalist text editor for Windows. It does one thing: **edit text without touching file timestamps**.
 
-## 特性
+## Features
 
-- **保存不改变文件时间**
-  - 读取时恢复 LastAccessTime（读操作会刷新它）
-  - 保存时在同一句柄上恢复 CreationTime / LastAccessTime / LastWriteTime
+- **Saving preserves file timestamps**
+- **Automatic encoding detection**: UTF-8 (with or without BOM), UTF-16 LE/BE (with BOM), and GBK (system ACP)
+- **Line endings**:
+  - Files that use pure CRLF remain CRLF after saving; empty files and files with no line breaks are unaffected
+  - Pure LF, mixed CRLF/LF, and pure CR (old Mac) files are normalized to LF on save
+- Scrolling, mouse wheel, selection, and clipboard are provided by the system `EDIT` control, behaving like Notepad.
+- Single executable, no runtime dependencies.
 
-- **自动识别编码**：UTF-8（BOM / 无 BOM）、UTF-16 LE / BE（BOM）、GBK（系统 ACP）
-  - 保存时按原编码写回；无法表示时提示升级为 UTF-8 BOM
+## Build
 
-- **行尾风格**：
-  - 纯 CRLF 文件保存后仍为 CRLF
-  - 纯 LF、混合 CRLF/LF、纯 CR(老 Mac) 文件保存后统一为 LF
-  - 空文件与不含换行的文件不受影响
+Requirements: MinGW-w64. From the project root, run in PowerShell or CMD:
 
-- 上下滚动、鼠标滚轮、选择、剪贴板由系统 `EDIT` 控件提供，行为与记事本一致。
-- 单 exe，无运行时依赖。
-
-## 构建
-
-依赖：MinGW-w64，`g++` 在 PATH 中。在项目根目录运行：
-
-```bat
-build.bat
+```pwsh
+.\build.bat
 ```
 
-PowerShell 里也可写 `./build.bat`。
+Output: `dist\quietext.exe`, ready to run.
 
-产物：`dist\quietext.exe`，可以直接运行。
+## Install / Uninstall
 
-## 安装 / 卸载
-
-```bat
-install.bat     :: 复制到 %LOCALAPPDATA%\quietext\bin 并加入用户 PATH
-uninstall.bat   :: 反向操作
+```pwsh
+.\install.bat     # Copy to %LOCALAPPDATA%\quietext\bin and add to the user PATH
+.\uninstall.bat   # Reverse the above
 ```
 
-安装后重开终端，即可在任意目录执行 `quietext`。
+After installation, reopen your terminal and run `quietext` from any directory.
 
-## 使用
+> When using CMD, the `.\` prefix may be omitted.
 
-```bat
-quietext                    :: 当前目录恰好一个文本文件则打开；否则弹选择框
-quietext new.txt            :: 不存在则新建（首次保存才落盘），存在则打开
-quietext D:\notes\a.md      :: 打开指定文件
+## Usage
+
+After installation, `quietext` is on your user PATH and can be invoked directly from both CMD and PowerShell:
+
+```pwsh
+quietext                # If the current directory contains exactly one text file, open it; otherwise show a file picker
+quietext new.txt        # Create a new file if it does not exist, or open it if it does
+quietext D:\notes\a.md  # Open the specified file
 ```
 
-## 快捷键
+To run the built executable without installing:
 
-| 快捷键 | 动作 |
+```pwsh
+.\dist\quietext.exe
+```
+
+## Shortcuts
+
+| Shortcut | Action |
 |---|---|
-| Ctrl+N | 新建空白文档 |
-| Ctrl+O | 打开… |
-| Ctrl+S | 保存 |
-| Ctrl+Shift+S | 另存为… |
-| Ctrl+Q | 关闭当前文档，回到未命名空白状态，不退出程序 |
-| Ctrl+Z / X / C / V / A | 撤销 / 剪切 / 复制 / 粘贴 / 全选 |
+| Ctrl+N | New blank document |
+| Ctrl+O | Open… |
+| Ctrl+S | Save |
+| Ctrl+Shift+S | Save As… |
+| Ctrl+Q | Close the current document and return to a blank untitled state without exiting the program |
+| Ctrl+Z / X / C / V / A | Undo / Cut / Copy / Paste / Select All |
 
-## 已知限制
+## Known Limitations
 
-- UTF-16 不带 BOM 无法自动识别（会按 ACP 解码，显示乱码）
-- 只读文件保存会失败（弹框提示，不会自动改属性）
+- UTF-16 without a BOM cannot be detected automatically, it will be decoded as ACP and show garbled text.
+- Saving a read-only file fails, an error dialog is shown; file attributes are not changed automatically.

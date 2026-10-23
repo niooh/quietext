@@ -58,7 +58,7 @@ bool EncodeACP(const std::wstring& s, std::vector<BYTE>& out) {
     WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS,
                         s.c_str(), (int)s.size(),
                         (char*)tmp.data(), n, nullptr, &usedDefault);
-    if (usedDefault) return false;   // 有字符无法表示
+    if (usedDefault) return false;   // unrepresentable character
     out.swap(tmp);
     return true;
 }
@@ -148,10 +148,10 @@ bool IsPureCRLF(const std::wstring& s) {
     for (size_t i = 0; i < s.size(); ++i) {
         if (s[i] == L'\r') {
             if (i + 1 < s.size() && s[i + 1] == L'\n') { hasCRLF = true; ++i; }
-            else return false;            // 孤立 CR
+            else return false;  // lone CR
         } else if (s[i] == L'\n') {
-            return false;                 // 孤立 LF
+            return false;  // lone LF
         }
     }
-    return hasCRLF;   // 没有换行时返回 false；但空文本上 CRLFtoLF 无操作，不影响结果
+    return hasCRLF;  // false when there are no line breaks
 }

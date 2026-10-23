@@ -5,12 +5,12 @@
 
 namespace fileio {
 
-// 读取全部字节；读后立即恢复 LastAccessTime（读操作会刷新 atime）。
+// Read all bytes; restores LastAccessTime touched by the read.
 bool ReadAllBytes(const std::wstring& path, std::vector<BYTE>& out,
                   HWND errorOwner);
 
-// 写入全部字节；保留 CreationTime / LastAccessTime / LastWriteTime。
-// 若文件不存在则仅创建，不设定时间。
+// Write all bytes; preserves CreationTime / LastAccessTime / LastWriteTime.
+// If the file does not exist, it is created without setting timestamps.
 bool WriteAllBytes(const std::wstring& path, const std::vector<BYTE>& data,
                    HWND errorOwner);
 

@@ -12,9 +12,9 @@ HWND         g_main = nullptr;
 HWND         g_edit = nullptr;
 HFONT        g_font = nullptr;
 
-std::wstring g_path;                 // empty = untitled
+std::wstring g_path;  // empty = untitled
 bool         g_dirty = false;
-bool         g_suppress = false;     // suppress EN_CHANGE caused by SetWindowTextW
+bool         g_suppress = false;  // suppress EN_CHANGE caused by SetWindowTextW
 Enc          g_enc = Enc::UTF8;
 bool         g_crlf = true;
 
@@ -207,7 +207,6 @@ bool DoOpenDialog(std::wstring& out) {
     OPENFILENAMEW ofn = {};
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner   = g_main;
-    // No extension whitelist: show every file so nothing gets hidden by accident.
     ofn.lpstrFilter = L"All Files\0*.*\0\0";
     ofn.lpstrFile = buf;
     ofn.nMaxFile  = MAX_PATH;
