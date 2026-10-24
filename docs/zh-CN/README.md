@@ -1,10 +1,10 @@
-p align="center">
-  <strong>quietext</strong>
+<p align="center">
+  <strong>Quietext</strong>
   <br>
   <a href="../../README.md">English</a> | 简体中文
 </p>
 
-一个 Windows 下的极简文本编辑器。只做一件事：**改文本，但不动文件时间**。
+一个 Windows 下的极简文本编辑器。只做一件事：**静默改文本，而不改动文件时间**。
 
 ## 特性
 
@@ -18,7 +18,9 @@ p align="center">
 
 ## 构建
 
-依赖：MinGW-w64。在项目根目录用 PowerShell 或 CMD 运行：
+依赖：Windows 7+, MinGW-w64。
+
+在项目根目录用 PowerShell 或 CMD 运行：
 
 ```pwsh
 .\build.bat
@@ -47,7 +49,7 @@ quietext new.txt        # 不存在则新建，存在则打开
 quietext D:\notes\a.md  # 打开指定文件
 ```
 
-未安装、直接运行构建产物时：
+未安装时，也可直接运行构建产物：
 
 ```pwsh
 .\dist\quietext.exe
@@ -55,7 +57,7 @@ quietext D:\notes\a.md  # 打开指定文件
 
 ## 快捷键
 
-| 快捷键 | 动作 |
+| 快捷键 | 操作 |
 |---|---|
 | Ctrl+N | 新建空白文档 |
 | Ctrl+O | 打开… |

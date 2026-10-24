@@ -1,10 +1,10 @@
 <p align="center">
-  <strong>quietext</strong>
+  <strong>Quietext</strong>
   <br>
   English | <a href="./docs/zh-CN/README.md">简体中文</a>
 </p>
 
-A minimalist text editor for Windows. It does one thing: **edit text without touching file timestamps**.
+A minimal text editor for Windows. It does only one thing: **silently modify text without touching the file timestamp**.
 
 ## Features
 
@@ -18,7 +18,9 @@ A minimalist text editor for Windows. It does one thing: **edit text without tou
 
 ## Build
 
-Requirements: MinGW-w64. From the project root, run in PowerShell or CMD:
+Requirements: Windows 7+, MinGW-w64.
+
+From the project root, run in PowerShell or CMD:
 
 ```pwsh
 .\build.bat
@@ -47,7 +49,7 @@ quietext new.txt        # Create a new file if it does not exist, or open it if 
 quietext D:\notes\a.md  # Open the specified file
 ```
 
-To run the built executable without installing:
+If not installed, you can also run the built executable directly:
 
 ```pwsh
 .\dist\quietext.exe
