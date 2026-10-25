@@ -1,5 +1,5 @@
 <p align="center">
-  <strong>Quietext</strong>
+  <img src="../figures/logo.png" alt="kv-query logo" width="160px"/>
   <br>
   <a href="../../README.md">English</a> | 简体中文
 </p>

@@ -1,5 +1,5 @@
 <p align="center">
-  <strong>Quietext</strong>
+  <img src="docs/figures/logo.png" alt="quietext logo" width="160px"/>
   <br>
   English | <a href="./docs/zh-CN/README.md">简体中文</a>
 </p>
