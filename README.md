@@ -9,11 +9,10 @@ A minimal text editor for Windows. It does only one thing: **silently modify tex
 ## Features
 
 - **Saving preserves file timestamps**
-- **Automatic encoding detection**: UTF-8 (with or without BOM), UTF-16 LE/BE (with BOM), and GBK (system ACP)
+- **Automatic encoding detection**: UTF-8 (with or without BOM), UTF-16 LE/BE (with BOM), and GBK
 - **Line endings**:
   - Files that use pure CRLF remain CRLF after saving; empty files and files with no line breaks are unaffected
-  - Pure LF, mixed CRLF/LF, and pure CR (old Mac) files are normalized to LF on save
-- Scrolling, mouse wheel, selection, and clipboard are provided by the system `EDIT` control, behaving like Notepad.
+  - Pure LF, mixed CRLF/LF, and pure CR files are normalized to LF on save
 - Single executable, no runtime dependencies.
 
 ## Build
@@ -26,7 +25,7 @@ From the project root, run in PowerShell or CMD:
 .\build.bat
 ```
 
-Output: `dist\quietext.exe`, ready to run.
+Output is `dist\quietext.exe`, ready to run.
 
 ## Install / Uninstall
 
@@ -41,7 +40,7 @@ After installation, reopen your terminal and run `quietext` from any directory.
 
 ## Usage
 
-After installation, `quietext` is on your user PATH and can be invoked directly from both CMD and PowerShell:
+After installation, `quietext` can be invoked directly from both CMD and PowerShell:
 
 ```pwsh
 quietext                # If the current directory contains exactly one text file, open it; otherwise show a file picker
@@ -60,13 +59,13 @@ If not installed, you can also run the built executable directly:
 | Shortcut | Action |
 |---|---|
 | Ctrl+N | New blank document |
-| Ctrl+O | Open… |
+| Ctrl+O | Open |
 | Ctrl+S | Save |
-| Ctrl+Shift+S | Save As… |
+| Ctrl+Shift+S | Save As |
 | Ctrl+Q | Close the current document and return to a blank untitled state without exiting the program |
 | Ctrl+Z / X / C / V / A | Undo / Cut / Copy / Paste / Select All |
 
 ## Known Limitations
 
 - UTF-16 without a BOM cannot be detected automatically, it will be decoded as ACP and show garbled text.
-- Saving a read-only file fails, an error dialog is shown; file attributes are not changed automatically.
+- Saving a read-only file fails, an error dialog will be shown.
