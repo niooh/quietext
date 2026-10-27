@@ -89,8 +89,6 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nCmdShow) {
-    // Prefer English for system-provided UI (MessageBox buttons, common dialogs).
-    // Falls back silently if English UI resources are not installed.
     SetThreadUILanguage(MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US));
 
     int argc = 0;
@@ -98,6 +96,15 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nCmdShow) {
     std::wstring cliPath;
     if (argv && argc >= 2 && argv[1][0]) cliPath = argv[1];
     if (argv) LocalFree(argv);
+
+    HICON hIcon = static_cast<HICON>(
+        LoadImageW(hInst, L"IDI_APP", IMAGE_ICON,
+                   0, 0, LR_DEFAULTSIZE | LR_SHARED));
+    HICON hIconSm = static_cast<HICON>(
+        LoadImageW(hInst, L"IDI_APP", IMAGE_ICON,
+                   GetSystemMetrics(SM_CXSMICON),
+                   GetSystemMetrics(SM_CYSMICON),
+                   LR_SHARED));
 
     WNDCLASSEXW wc = {};
     wc.cbSize        = sizeof(wc);
@@ -107,7 +114,8 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nCmdShow) {
     wc.hCursor       = LoadCursor(nullptr, IDC_ARROW);
     wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
     wc.lpszClassName = L"QuietextWindow";
-    wc.hIcon         = LoadIcon(nullptr, IDI_APPLICATION);
+    wc.hIcon         = hIcon;
+    wc.hIconSm       = hIconSm;
     RegisterClassExW(&wc);
 
     g_hMain = CreateWindowExW(0, L"QuietextWindow", L"quietext",
