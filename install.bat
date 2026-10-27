@@ -3,10 +3,22 @@ setlocal
 cd /d "%~dp0"
 
 set "EXE=%~dp0dist\quietext.exe"
-if not exist "%EXE%" (
-    echo [install] dist\quietext.exe not found. Run build.bat first.
+
+if exist "%EXE%" goto :have_exe
+
+echo [install] dist\quietext.exe not found. Attempting to build...
+
+call "%~dp0build.bat"
+if errorlevel 1 (
+    echo [install] Build failed. See the output above.
     exit /b 1
 )
+if not exist "%EXE%" (
+    echo [install] Build reported success but dist\quietext.exe is missing.
+    exit /b 1
+)
+
+:have_exe
 
 set "TARGET=%LOCALAPPDATA%\quietext\bin"
 if not exist "%TARGET%" mkdir "%TARGET%"
