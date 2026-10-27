@@ -36,17 +36,14 @@
 
 安装后重开终端，即可在任意目录执行 `quietext`。
 
-> CMD 运行时可以省略 `.\` 前缀
-
 ## 使用
 
 安装后 CMD 与 PowerShell 均可直接调用：
 
 ```pwsh
-quietext                # 打开空白窗口
-quietext .              # 若当前目录恰好一个文本文件则打开，否则弹选择框
-quietext new.txt        # 不存在则新建，存在则打开
-quietext D:\notes\a.md  # 打开指定文件
+quietext          # 打开空白窗口
+quietext .        # 若当前目录恰好一个文本文件则打开，否则弹选择框
+quietext new.txt  # 打开指定文件
 ```
 
 未安装时，也可直接运行构建产物：
