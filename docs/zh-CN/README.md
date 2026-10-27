@@ -43,7 +43,8 @@
 安装后 CMD 与 PowerShell 均可直接调用：
 
 ```pwsh
-quietext                # 若当前目录恰好一个文本文件则打开，否则弹选择框
+quietext                # 打开空白窗口
+quietext .              # 若当前目录恰好一个文本文件则打开，否则弹选择框
 quietext new.txt        # 不存在则新建，存在则打开
 quietext D:\notes\a.md  # 打开指定文件
 ```

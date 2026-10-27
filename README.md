@@ -43,7 +43,8 @@ After installation, reopen your terminal and run `quietext` from any directory.
 After installation, `quietext` can be invoked directly from both CMD and PowerShell:
 
 ```pwsh
-quietext                # If the current directory contains exactly one text file, open it; otherwise show a file picker
+quietext                # Open a blank editor window
+quietext .              # If the current directory contains exactly one text file, open it; otherwise show a file picker
 quietext new.txt        # Create a new file if it does not exist, or open it if it does
 quietext D:\notes\a.md  # Open the specified file
 ```

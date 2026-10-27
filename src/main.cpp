@@ -120,12 +120,12 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nCmdShow) {
     UpdateWindow(g_hMain);
 
     // Startup file selection:
-    //   1) explicit command-line argument wins
-    //   2) a single text file in the cwd is auto-opened
-    //   3) otherwise prompt via Open dialog (user may cancel)
-    if (!cliPath.empty()) {
-        editor::OpenPath(cliPath);
-    } else {
+    //   no argument -> blank editor window
+    //   "."         -> pick a text file from the cwd:
+    //              * exactly one -> open it
+    //              * otherwise  -> show Open dialog (user may cancel)
+    //   other path  -> open it directly
+    if (cliPath == L".") {
         auto files = FindTextFilesInCwd();
         if (files.size() == 1) {
             editor::OpenPath(files[0]);
@@ -133,6 +133,8 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nCmdShow) {
             std::wstring picked;
             if (editor::DoOpenDialog(picked)) editor::OpenPath(picked);
         }
+    } else if (!cliPath.empty()) {
+        editor::OpenPath(cliPath);
     }
 
     // Accelerators (Ctrl+Q goes to ID_FILE_CLOSE).
